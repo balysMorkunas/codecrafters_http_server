@@ -18,7 +18,10 @@ fn main() {
                 println!("{}", request);
 
                 // ex: GET /index.html HTTP/1.1
-                let header: Vec<&str> = request.split_once("\r\n").unwrap().0.split(" ").collect();
+                let (header, parameters): (&str, &str) = request.split_once("\r\n").unwrap(); //.0.split(" ").collect();
+                let header: Vec<&str> = header.split(" ").collect();
+                let parameters: Vec<&str> = parameters.split("\r\n").collect();
+                println!("{:?}", parameters);
 
                 let path: &str = header[1];
 
@@ -27,6 +30,18 @@ fn main() {
                     p if p.starts_with("/echo/") => {
                         let echo_data = p.strip_prefix("/echo/").unwrap();
                         let response_string = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", echo_data.len(), echo_data);
+
+                        respond(stream, &response_string)
+                    }
+                    p if p.starts_with("/user-agent") => {
+                        let mut user_agent = "";
+                        for param in parameters.iter() {
+                            if param.contains("User-Agent") {
+                                user_agent = param.split_once(": ").unwrap().1;
+                                break;
+                            }
+                        }
+                        let response_string = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", user_agent.len(), user_agent);
 
                         respond(stream, &response_string)
                     }
