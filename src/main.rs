@@ -20,15 +20,16 @@ fn main() {
                 // ex: GET /index.html HTTP/1.1
                 let header: Vec<&str> = request.split_once("\r\n").unwrap().0.split(" ").collect();
 
-                let path: Vec<&str> = header[1].split("/").collect();
+                let path: &str = header[1];
 
-                match path[1] {
-                    "echo" => {
-                        let response_string = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", path[2].len(), path[2]);
+                match path {
+                    "/" => respond(stream, "HTTP/1.1 200 OK\r\n\r\n"),
+                    p if p.starts_with("/echo/") => {
+                        let echo_data = p.strip_prefix("/echo/").unwrap();
+                        let response_string = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", echo_data.len(), echo_data);
 
                         respond(stream, &response_string)
                     }
-                    "" => respond(stream, "HTTP/1.1 200 OK\r\n\r\n"),
                     _ => respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
                 };
             }
