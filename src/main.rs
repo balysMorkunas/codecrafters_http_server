@@ -11,11 +11,19 @@ fn main() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(mut _stream) => {
-                let response = "HTTP/1.1 200 OK\r\n\r\n";
+            Ok(mut stream) => {
+                let mut buffer = [0; 512];
+                let _ = stream.read(&mut buffer);
+                let request = String::from_utf8_lossy(&buffer[..]).to_string();
 
-                _stream.write(response.as_bytes()).unwrap();
-                _stream.flush().unwrap();
+                // ex: GET /index.html HTTP/1.1
+                let header: Vec<&str> = request.split_once("\r\n").unwrap().0.split(" ").collect();
+
+                let path = header[1];
+                match path {
+                    "/" => respond(stream, "HTTP/1.1 200 OK\r\n\r\n"),
+                    _ => respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
+                };
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -24,10 +32,7 @@ fn main() {
     }
 }
 
-// fn handle_connection(mut stream: TcpStream) {
-//     let mut buffer = [0; 512];
-//
-//     stream.read(&mut buffer).unwrap();
-//
-//     println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
-// }
+fn respond(mut stream: TcpStream, response: &str) {
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
+}
