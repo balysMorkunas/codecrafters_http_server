@@ -1,4 +1,5 @@
 use std::{
+    env, fs,
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     thread,
@@ -31,7 +32,7 @@ fn handle_connection(mut stream: TcpStream) {
     let request = String::from_utf8_lossy(&buffer[..]).to_string();
 
     // ex: (GET /index.html HTTP/1.1, other params like user-agent)
-    let (header, parameters): (&str, &str) = request.split_once("\r\n").unwrap(); //.0.split(" ").collect();
+    let (header, parameters): (&str, &str) = request.split_once("\r\n").unwrap();
     let header: Vec<&str> = header.split(" ").collect();
     let parameters: Vec<&str> = parameters.split("\r\n").collect();
 
@@ -63,6 +64,38 @@ fn handle_connection(mut stream: TcpStream) {
             );
 
             respond(stream, &response_string)
+        }
+        p if p.starts_with("/files/") => {
+            let args: Vec<String> = env::args().collect();
+            let dir_arg_index = args.iter().position(|a| a == "--directory");
+            let mut response = String::new();
+
+            match dir_arg_index {
+                Some(index) => {
+                    let abs_dir = &args[index + 1];
+                    let file_name = path.split_once("/files/").unwrap().1;
+                    let abs_file_path = format!("{}{}", abs_dir, file_name);
+
+                    match fs::read_to_string(abs_file_path) {
+                        Ok(it) => {
+                            let content_len = &it.len();
+                            let len_header = format!("Content-Length: {}\r\n\r\n", content_len);
+                            let contents = &format!("{}\r\n\r\n", it);
+
+                            response.push_str("HTTP/1.1 200 OK\r\n");
+                            response.push_str("Content-Type: application/octet-stream\r\n");
+                            response.push_str(&len_header);
+                            response.push_str(contents);
+                        }
+                        Err(_) => {
+                            response.push_str("HTTP/1.1 404 Not Found\r\n\r\n");
+                        }
+                    };
+
+                    respond(stream, &response)
+                }
+                None => respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
+            }
         }
         "/" => respond(stream, "HTTP/1.1 200 OK\r\n\r\n"),
         _ => respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
