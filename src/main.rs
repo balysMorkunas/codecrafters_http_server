@@ -1,5 +1,6 @@
 use std::{
-    env, fs,
+    env,
+    fs::{self, File},
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     thread,
@@ -65,7 +66,7 @@ fn handle_connection(mut stream: TcpStream) {
 
             respond(stream, &response_string)
         }
-        p if p.starts_with("/files/") => {
+        p if p.starts_with("/files/") && header[0] == "GET" => {
             let args: Vec<String> = env::args().collect();
             let dir_arg_index = args.iter().position(|a| a == "--directory");
             let mut response = String::new();
@@ -93,6 +94,37 @@ fn handle_connection(mut stream: TcpStream) {
                     };
 
                     respond(stream, &response)
+                }
+                None => respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
+            }
+        }
+        p if p.starts_with("/files/") && header[0] == "POST" => {
+            let args: Vec<String> = env::args().collect();
+            let dir_arg_index = args.iter().position(|a| a == "--directory");
+
+            match dir_arg_index {
+                Some(index) => {
+                    let abs_dir = &args[index + 1];
+                    let file_name = path.split_once("/files/").unwrap().1;
+                    let abs_file_path = format!("{}{}", abs_dir, file_name);
+                    let mut body_idx = 0;
+                    for (i, param) in parameters.iter().enumerate() {
+                        if param == &"" {
+                            body_idx = i + 1;
+                        }
+                    }
+
+                    let mut file = match File::create(abs_file_path) {
+                        Ok(it) => it,
+                        Err(_) => return respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
+                    };
+
+                    match file.write(parameters[body_idx].as_bytes()) {
+                        Ok(it) => it,
+                        Err(_) => return respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
+                    };
+
+                    respond(stream, "HTTP/1.1 201 OK\r\n\r\n")
                 }
                 None => respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
             }
