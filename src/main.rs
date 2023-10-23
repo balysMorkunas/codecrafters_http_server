@@ -119,7 +119,7 @@ fn handle_connection(mut stream: TcpStream) {
                         Err(_) => return respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
                     };
 
-                    match file.write(parameters[body_idx].as_bytes()) {
+                    match file.write(parameters[body_idx].replace("\0", "").as_bytes()) {
                         Ok(it) => it,
                         Err(_) => return respond(stream, "HTTP/1.1 404 Not Found\r\n\r\n"),
                     };
